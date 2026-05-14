@@ -6,15 +6,20 @@ from datetime import datetime
 # --- CONFIG & STYLING ---
 st.set_page_config(page_title="Indo-UAE Trade Pro", layout="wide")
 
-# Updated CSS: Uses semi-transparent backgrounds to work in both Light and Dark modes
 st.markdown("""
     <style>
-    /* Target the metric containers safely */
     [data-testid="stMetric"] { 
         background-color: rgba(128, 128, 128, 0.1); 
         padding: 15px; 
         border-radius: 10px; 
         border: 1px solid rgba(128, 128, 128, 0.2);
+    }
+    /* Make the conversion captions pop a bit more */
+    .conversion-text {
+        color: #888888;
+        font-size: 0.85rem;
+        margin-top: -10px;
+        margin-bottom: 15px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -48,14 +53,24 @@ if page == "Calculator & Log":
     with col1:
         st.subheader("Costing (INR)")
         item_name = st.text_input("Item Label", placeholder="e.g., Silk Saree A1")
-        buy_price = st.number_input("Purchase Price", min_value=0.0, step=100.0)
-        ship_price = st.number_input("Shipping / Packaging", min_value=0.0, step=50.0)
-        customs = st.number_input("Customs / Misc", min_value=0.0, step=10.0)
+        
+        buy_price = st.number_input("Purchase Price (INR)", min_value=0.0, step=100.0)
+        st.markdown(f"<div class='conversion-text'>🔄 ≈ {(buy_price / rate):.2f} AED</div>", unsafe_allow_html=True)
+        
+        ship_price = st.number_input("Shipping / Packaging (INR)", min_value=0.0, step=50.0)
+        st.markdown(f"<div class='conversion-text'>🔄 ≈ {(ship_price / rate):.2f} AED</div>", unsafe_allow_html=True)
+        
+        customs = st.number_input("Customs / Misc (INR)", min_value=0.0, step=10.0)
+        st.markdown(f"<div class='conversion-text'>🔄 ≈ {(customs / rate):.2f} AED</div>", unsafe_allow_html=True)
+        
         total_cost = buy_price + ship_price + customs
 
     with col2:
         st.subheader("Sale (AED)")
-        sale_aed = st.number_input("Sale Price in UAE", min_value=0.0, step=10.0)
+        
+        sale_aed = st.number_input("Sale Price in UAE (AED)", min_value=0.0, step=10.0)
+        st.markdown(f"<div class='conversion-text'>🔄 ≈ ₹{(sale_aed * rate):,.2f}</div>", unsafe_allow_html=True)
+        
         revenue_inr = sale_aed * rate
         profit = revenue_inr - total_cost
         margin = (profit / revenue_inr * 100) if revenue_inr > 0 else 0
@@ -65,13 +80,13 @@ if page == "Calculator & Log":
     # Results Dashboard
     m1, m2, m3 = st.columns(3)
     m1.metric("Total Cost (INR)", f"₹{total_cost:,.2f}")
-    m2.metric("Net Profit (INR)", f"₹{profit:,.2f}", delta=f"{margin:.1f}%")
+    m2.metric("Net Profit (INR)", f"₹{profit:,.2f}", delta=f"{margin:.1f}% Margin")
     m3.metric("Profit (AED)", f"{profit/rate:.2f} د.إ")
 
     # The "Integrator" Button
     if st.button("✅ Record Sale to Bookkeeping", use_container_width=True):
         new_entry = {
-            'Date': datetime.now().strftime("%Y-%m-%d"),
+            'Date': datetime.now().strftime("%Y-%m-%d %H:%M"), # Added time for uniqueness
             'Item Name': item_name if item_name else "Unnamed Item",
             'Cost (INR)': total_cost,
             'Sale (AED)': sale_aed,
@@ -101,19 +116,40 @@ else:
         c2.metric("Lifetime Profit", f"₹{total_prof:,.0f}")
         c3.metric("Total Items Sold", len(df))
 
-        # --- MONTHLY BREAKDOWN ---
-        st.subheader("Monthly Earnings")
-        monthly_stats = df.groupby('Month')['Profit (INR)'].sum().reset_index()
-        st.bar_chart(monthly_stats.set_index('Month'))
-
         # --- DATA TABLE ---
         st.subheader("Detailed Logs")
         st.dataframe(df.sort_values('Date', ascending=False), use_container_width=True)
 
-        # Download Option
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download Records as CSV", data=csv, file_name="sales_records.csv", mime="text/csv")
+        # --- MANAGE / DELETE RECORDS ---
+        st.divider()
+        st.subheader("🗑️ Manage Records")
+        
+        # Create a formatted list of options for the dropdown
+        # e.g., "0: Silk Saree A1 - 150 AED (2026-05-14)"
+        delete_options = [f"{i}: {row['Item Name']} - {row['Sale (AED)']} AED ({row['Date'].strftime('%Y-%m-%d')})" for i, row in df.iterrows()]
+        
+        col_del1, col_del2 = st.columns([3, 1])
+        with col_del1:
+            selected_to_delete = st.selectbox("Select a specific record to delete:", delete_options)
+        with col_del2:
+            st.write("") # Spacing to align button with dropdown
+            st.write("")
+            if st.button("Delete Specific Record", type="primary"):
+                if selected_to_delete:
+                    # Extract the index (the number before the colon)
+                    idx_to_drop = int(selected_to_delete.split(":")[0])
+                    # Drop from the session state dataframe
+                    st.session_state.sales_data = st.session_state.sales_data.drop(idx_to_drop).reset_index(drop=True)
+                    st.success("Record deleted successfully!")
+                    st.rerun()
 
-        if st.button("🗑️ Clear All Records"):
-            st.session_state.sales_data = pd.DataFrame(columns=st.session_state.sales_data.columns)
-            st.rerun()
+        # Download & Wipe All Options
+        st.divider()
+        c_dl, c_wipe = st.columns(2)
+        with c_dl:
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Download Records as CSV", data=csv, file_name="sales_records.csv", mime="text/csv", use_container_width=True)
+        with c_wipe:
+            if st.button("⚠️ Clear ALL Records", use_container_width=True):
+                st.session_state.sales_data = pd.DataFrame(columns=st.session_state.sales_data.columns)
+                st.rerun()
