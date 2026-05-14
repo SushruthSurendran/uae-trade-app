@@ -157,7 +157,7 @@ h2, h3 { font-weight: 600 !important; color: #1a1a1a !important; letter-spacing:
 if 'sales_data' not in st.session_state:
     st.session_state.sales_data = pd.DataFrame(columns=[
         'Date','Sale ID','Customer','Item','Channel','Payment','Status',
-        'Cost (INR)','Sale (AED)','Profit (INR)','Margin %'
+        'Quantity','Cost (INR)','Sale (AED)','Profit (INR)','Margin %'
     ])
 if 'tab' not in st.session_state:
     st.session_state.tab = "calc"
@@ -193,7 +193,6 @@ with tb2:
 
 st.markdown("<hr style='margin:16px 0 28px'>", unsafe_allow_html=True)
 
-
 # ══════════════════════════════════════════════
 # CALCULATOR
 # ══════════════════════════════════════════════
@@ -217,14 +216,15 @@ if st.session_state.tab == "calc":
 
     with col1:
         st.markdown("<div class='lbl'>Costs — INR</div>", unsafe_allow_html=True)
-        buy_price  = st.number_input("Purchase Price (INR)",        min_value=0.0, step=100.0)
-        st.markdown(f"<div class='hint'>≈ {buy_price/rate:.2f} AED</div>", unsafe_allow_html=True)
-        ship_price = st.number_input("Shipping / Packaging (INR)", min_value=0.0, step=50.0)
+        quantity   = st.number_input("Quantity", min_value=1, step=1, value=1)
+        buy_price  = st.number_input("Purchase Price (per item) (INR)", min_value=0.0, step=100.0)
+        st.markdown(f"<div class='hint'>≈ {(buy_price * quantity)/rate:.2f} AED (Total Items)</div>", unsafe_allow_html=True)
+        
+        ship_price = st.number_input("Shipping / Packaging (Total INR)", min_value=0.0, step=50.0)
         st.markdown(f"<div class='hint'>≈ {ship_price/rate:.2f} AED</div>", unsafe_allow_html=True)
-        customs    = st.number_input("Customs / Misc (INR)",        min_value=0.0, step=10.0)
-        st.markdown(f"<div class='hint'>≈ {customs/rate:.2f} AED</div>", unsafe_allow_html=True)
 
-        total_cost = buy_price + ship_price + customs
+        # Total Cost now multiplies purchase price by quantity
+        total_cost = (buy_price * quantity) + ship_price
         st.markdown(f"""
         <div class="cost-strip">
             <div class="cs-label">Total Cost</div>
@@ -235,7 +235,7 @@ if st.session_state.tab == "calc":
 
     with col2:
         st.markdown("<div class='lbl'>Revenue — AED</div>", unsafe_allow_html=True)
-        sale_aed    = st.number_input("Sale Price (AED)", min_value=0.0, step=10.0)
+        sale_aed    = st.number_input("Total Sale Price (AED)", min_value=0.0, step=10.0)
         st.markdown(f"<div class='hint'>≈ ₹{sale_aed*rate:,.2f}</div>", unsafe_allow_html=True)
         revenue_inr = sale_aed * rate
         profit      = revenue_inr - total_cost
@@ -255,7 +255,7 @@ if st.session_state.tab == "calc":
             'Date': datetime.now().strftime("%Y-%m-%d %H:%M"),
             'Sale ID': sale_id, 'Customer': customer or "Unknown",
             'Item': item_name or "Unnamed", 'Channel': channel,
-            'Payment': payment, 'Status': status,
+            'Payment': payment, 'Status': status, 'Quantity': quantity,
             'Cost (INR)': total_cost, 'Sale (AED)': sale_aed,
             'Profit (INR)': profit, 'Margin %': round(margin, 2)
         }
@@ -280,7 +280,8 @@ else:
         c1.metric("Revenue",    f"₹{(df['Sale (AED)']*rate).sum():,.0f}")
         c2.metric("Profit",     f"₹{df['Profit (INR)'].sum():,.0f}")
         c3.metric("Avg Margin", f"{df['Margin %'].mean():.1f}%")
-        c4.metric("Items Sold", str(len(df)))
+        # Updated to sum the actual quantity of items sold
+        c4.metric("Items Sold", str(df['Quantity'].sum()))
 
         st.markdown("<hr>", unsafe_allow_html=True)
         st.markdown("<div class='lbl'>Sales Log</div>", unsafe_allow_html=True)
@@ -290,6 +291,7 @@ else:
             use_container_width=True, hide_index=True,
             column_config={
                 "Date":         st.column_config.DatetimeColumn("Date", format="DD MMM YYYY, HH:mm"),
+                "Quantity":     st.column_config.NumberColumn("Qty"),
                 "Profit (INR)": st.column_config.NumberColumn(format="₹%.2f"),
                 "Sale (AED)":   st.column_config.NumberColumn(format="%.2f د.إ"),
                 "Cost (INR)":   st.column_config.NumberColumn(format="₹%.2f"),
@@ -300,8 +302,9 @@ else:
         st.markdown("<hr>", unsafe_allow_html=True)
         st.markdown("<div class='lbl'>Manage</div>", unsafe_allow_html=True)
 
+        # Added quantity to the delete dropdown text for better visibility
         opts = [
-            f"{i}  ·  [{r['Sale ID']}]  {r['Item']}  —  {r['Customer']}  ({r['Sale (AED)']} AED)"
+            f"{i}  ·  [{r['Sale ID']}]  {r['Quantity']}x {r['Item']}  —  {r['Customer']}  ({r['Sale (AED)']} AED)"
             for i, r in df.iterrows()
         ]
         d1, d2 = st.columns([5, 1])
