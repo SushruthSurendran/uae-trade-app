@@ -223,7 +223,6 @@ if st.session_state.tab == "calc":
         ship_price = st.number_input("Shipping / Packaging (Total INR)", min_value=0.0, step=50.0)
         st.markdown(f"<div class='hint'>≈ {ship_price/rate:.2f} AED</div>", unsafe_allow_html=True)
 
-        # Total Cost now multiplies purchase price by quantity
         total_cost = (buy_price * quantity) + ship_price
         st.markdown(f"""
         <div class="cost-strip">
@@ -235,9 +234,17 @@ if st.session_state.tab == "calc":
 
     with col2:
         st.markdown("<div class='lbl'>Revenue — AED</div>", unsafe_allow_html=True)
-        sale_aed    = st.number_input("Total Sale Price (AED)", min_value=0.0, step=10.0)
-        st.markdown(f"<div class='hint'>≈ ₹{sale_aed*rate:,.2f}</div>", unsafe_allow_html=True)
-        revenue_inr = sale_aed * rate
+        
+        # --- NEW: Sale price is now PER ITEM ---
+        unit_sale_aed = st.number_input("Sale Price (per item) (AED)", min_value=0.0, step=10.0)
+        
+        # Multiply by quantity to get total AED revenue
+        total_sale_aed = unit_sale_aed * quantity
+        
+        # The hint now shows the Total AED and Total INR
+        st.markdown(f"<div class='hint'>Total: {total_sale_aed:,.2f} AED ≈ ₹{total_sale_aed*rate:,.2f}</div>", unsafe_allow_html=True)
+        
+        revenue_inr = total_sale_aed * rate
         profit      = revenue_inr - total_cost
         margin      = (profit / revenue_inr * 100) if revenue_inr > 0 else 0
 
@@ -256,7 +263,8 @@ if st.session_state.tab == "calc":
             'Sale ID': sale_id, 'Customer': customer or "Unknown",
             'Item': item_name or "Unnamed", 'Channel': channel,
             'Payment': payment, 'Status': status, 'Quantity': quantity,
-            'Cost (INR)': total_cost, 'Sale (AED)': sale_aed,
+            'Cost (INR)': total_cost, 
+            'Sale (AED)': total_sale_aed, # Records the TOTAL AED amount to keep the bookkeeping revenue accurate
             'Profit (INR)': profit, 'Margin %': round(margin, 2)
         }
         st.session_state.sales_data = pd.concat(
@@ -280,7 +288,6 @@ else:
         c1.metric("Revenue",    f"₹{(df['Sale (AED)']*rate).sum():,.0f}")
         c2.metric("Profit",     f"₹{df['Profit (INR)'].sum():,.0f}")
         c3.metric("Avg Margin", f"{df['Margin %'].mean():.1f}%")
-        # Updated to sum the actual quantity of items sold
         c4.metric("Items Sold", str(df['Quantity'].sum()))
 
         st.markdown("<hr>", unsafe_allow_html=True)
@@ -302,9 +309,8 @@ else:
         st.markdown("<hr>", unsafe_allow_html=True)
         st.markdown("<div class='lbl'>Manage</div>", unsafe_allow_html=True)
 
-        # Added quantity to the delete dropdown text for better visibility
         opts = [
-            f"{i}  ·  [{r['Sale ID']}]  {r['Quantity']}x {r['Item']}  —  {r['Customer']}  ({r['Sale (AED)']} AED)"
+            f"{i}  ·  [{r['Sale ID']}]  {r['Quantity']}x {r['Item']}  —  {r['Customer']}  ({r['Sale (AED)']} AED Total)"
             for i, r in df.iterrows()
         ]
         d1, d2 = st.columns([5, 1])
