@@ -6,17 +6,21 @@ from datetime import datetime
 # --- CONFIG & STYLING ---
 st.set_page_config(page_title="Indo-UAE Trade Pro", layout="wide")
 
-# Minimalistic CSS for mobile optimization
+# Updated CSS: Uses semi-transparent backgrounds to work in both Light and Dark modes
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    /* Target the metric containers safely */
+    [data-testid="stMetric"] { 
+        background-color: rgba(128, 128, 128, 0.1); 
+        padding: 15px; 
+        border-radius: 10px; 
+        border: 1px solid rgba(128, 128, 128, 0.2);
+    }
     </style>
     """, unsafe_allow_html=True)
 
 # --- DATA INITIALIZATION ---
 if 'sales_data' not in st.session_state:
-    # Initialize empty dataframe with columns
     st.session_state.sales_data = pd.DataFrame(columns=[
         'Date', 'Item Name', 'Cost (INR)', 'Sale (AED)', 'Profit (INR)', 'Margin %'
     ])
