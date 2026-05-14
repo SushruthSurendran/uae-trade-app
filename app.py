@@ -1,62 +1,115 @@
 import streamlit as st
+import pandas as pd
 import requests
+from datetime import datetime
 
-# App Configuration
-st.set_page_config(page_title="Indo-UAE Trade Companion", layout="centered")
+# --- CONFIG & STYLING ---
+st.set_page_config(page_title="Indo-UAE Trade Pro", layout="wide")
 
-def get_exchange_rate():
-    # Using a free API for real-time rates
-    url = "https://api.exchangerate-api.com/v4/latest/AED"
+# Minimalistic CSS for mobile optimization
+st.markdown("""
+    <style>
+    .main { background-color: #f8f9fa; }
+    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- DATA INITIALIZATION ---
+if 'sales_data' not in st.session_state:
+    # Initialize empty dataframe with columns
+    st.session_state.sales_data = pd.DataFrame(columns=[
+        'Date', 'Item Name', 'Cost (INR)', 'Sale (AED)', 'Profit (INR)', 'Margin %'
+    ])
+
+# --- HELPER FUNCTIONS ---
+def get_rate():
     try:
-        response = requests.get(url)
-        data = response.json()
-        return data['rates']['INR']
+        url = "https://api.exchangerate-api.com/v4/latest/AED"
+        return requests.get(url).json()['rates']['INR']
     except:
-        return 22.70  # Fallback rate
+        return 22.75 # Default fallback
 
-st.title("🧵 Indo-UAE Apparel Calc")
-st.markdown("---")
+# --- SIDEBAR NAVIGATION ---
+st.sidebar.title("📊 Menu")
+page = st.sidebar.radio("Go to", ["Calculator & Log", "Bookkeeping & Analytics"])
+rate = get_rate()
+st.sidebar.metric("Live AED ➔ INR", f"₹{rate:.2f}")
 
-# --- 1. Currency Section ---
-rate = get_exchange_rate()
-st.metric(label="Current Rate (1 AED to INR)", value=f"₹{rate:.2f}")
-
-# --- 2. Cost Inputs (INR) ---
-with st.expander("Step 1: Indian Costs (INR)", expanded=True):
-    item_cost = st.number_input("Item Purchase Price (INR)", min_value=0.0, step=100.0)
-    shipping_inr = st.number_input("Shipping & Logistics (INR)", min_value=0.0, step=50.0)
-    customs_misc = st.number_input("Customs & Other Fees (INR)", min_value=0.0, step=10.0)
+# --- PAGE 1: CALCULATOR & LOGGING ---
+if page == "Calculator & Log":
+    st.header("🛒 New Sale Calculator")
     
-    total_cost_inr = item_cost + shipping_inr + customs_misc
-    st.info(f"Total Investment: ₹{total_cost_inr:,.2f}")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Costing (INR)")
+        item_name = st.text_input("Item Label", placeholder="e.g., Silk Saree A1")
+        buy_price = st.number_input("Purchase Price", min_value=0.0, step=100.0)
+        ship_price = st.number_input("Shipping / Packaging", min_value=0.0, step=50.0)
+        customs = st.number_input("Customs / Misc", min_value=0.0, step=10.0)
+        total_cost = buy_price + ship_price + customs
 
-# --- 3. Sales Inputs (AED) ---
-with st.expander("Step 2: UAE Sale Price (AED)", expanded=True):
-    sale_price_aed = st.number_input("Selling Price in Dubai (AED)", min_value=0.0, step=5.0)
-    revenue_inr = sale_price_aed * rate
+    with col2:
+        st.subheader("Sale (AED)")
+        sale_aed = st.number_input("Sale Price in UAE", min_value=0.0, step=10.0)
+        revenue_inr = sale_aed * rate
+        profit = revenue_inr - total_cost
+        margin = (profit / revenue_inr * 100) if revenue_inr > 0 else 0
 
-# --- 4. Profit Analysis ---
-st.markdown("### 📊 Business Summary")
-profit_inr = revenue_inr - total_cost_inr
+    st.divider()
+    
+    # Results Dashboard
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Total Cost (INR)", f"₹{total_cost:,.2f}")
+    m2.metric("Net Profit (INR)", f"₹{profit:,.2f}", delta=f"{margin:.1f}%")
+    m3.metric("Profit (AED)", f"{profit/rate:.2f} د.إ")
 
-if sale_price_aed > 0:
-    margin = (profit_inr / revenue_inr) * 100
+    # The "Integrator" Button
+    if st.button("✅ Record Sale to Bookkeeping", use_container_width=True):
+        new_entry = {
+            'Date': datetime.now().strftime("%Y-%m-%d"),
+            'Item Name': item_name if item_name else "Unnamed Item",
+            'Cost (INR)': total_cost,
+            'Sale (AED)': sale_aed,
+            'Profit (INR)': profit,
+            'Margin %': round(margin, 2)
+        }
+        st.session_state.sales_data = pd.concat([st.session_state.sales_data, pd.DataFrame([new_entry])], ignore_index=True)
+        st.success(f"Logged {item_name} successfully!")
+
+# --- PAGE 2: BOOKKEEPING & ANALYTICS ---
 else:
-    margin = 0.0
+    st.header("📈 Sales Records")
+    
+    if st.session_state.sales_data.empty:
+        st.info("No sales recorded yet. Head to the Calculator to add some!")
+    else:
+        df = st.session_state.sales_data.copy()
+        df['Date'] = pd.to_datetime(df['Date'])
+        df['Month'] = df['Date'].dt.strftime('%B %Y')
 
-col1, col2 = st.columns(2)
-with col1:
-    st.metric("Net Profit (INR)", f"₹{profit_inr:,.2f}", delta=f"{margin:.1f}% Margin")
-with col2:
-    profit_aed = profit_inr / rate
-    st.metric("Net Profit (AED)", f"{profit_aed:.2f} د.إ")
+        # --- SUMMARY SECTION ---
+        total_rev = (df['Sale (AED)'] * rate).sum()
+        total_prof = df['Profit (INR)'].sum()
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Lifetime Revenue", f"₹{total_rev:,.0f}")
+        c2.metric("Lifetime Profit", f"₹{total_prof:,.0f}")
+        c3.metric("Total Items Sold", len(df))
 
-# --- 5. Insights ---
-if profit_inr > 0:
-    st.success(f"Nice! You are making ₹{profit_inr:,.2f} per unit.")
-elif profit_inr < 0:
-    st.error(f"Warning: Loss of ₹{abs(profit_inr):,.2f} at this price point.")
+        # --- MONTHLY BREAKDOWN ---
+        st.subheader("Monthly Earnings")
+        monthly_stats = df.groupby('Month')['Profit (INR)'].sum().reset_index()
+        st.bar_chart(monthly_stats.set_index('Month'))
 
-# Break-even calculation
-break_even_aed = total_cost_inr / rate
-st.write(f"**Break-even Price:** {break_even_aed:.2f} AED")
+        # --- DATA TABLE ---
+        st.subheader("Detailed Logs")
+        st.dataframe(df.sort_values('Date', ascending=False), use_container_width=True)
+
+        # Download Option
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download Records as CSV", data=csv, file_name="sales_records.csv", mime="text/csv")
+
+        if st.button("🗑️ Clear All Records"):
+            st.session_state.sales_data = pd.DataFrame(columns=st.session_state.sales_data.columns)
+            st.rerun()
