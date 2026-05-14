@@ -25,6 +25,14 @@ st.markdown("""
         margin-top: 10px;
         margin-bottom: 10px;
     }
+    .total-cost-box {
+        padding: 15px; 
+        border-radius: 8px; 
+        background-color: rgba(128, 128, 128, 0.15); 
+        border-left: 5px solid #ff9800; 
+        margin-top: 15px;
+        margin-bottom: 10px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -58,7 +66,6 @@ if page == "Calculator & Log":
     sd1, sd2, sd3 = st.columns(3)
     
     with sd1:
-        # Auto-generate Invoice ID based on current database length
         default_inv = f"INV-{len(st.session_state.sales_data) + 1:03d}"
         sale_id = st.text_input("Sale Number / Invoice ID", value=default_inv)
         customer = st.text_input("Customer Name", placeholder="e.g., Aisha M.")
@@ -89,6 +96,17 @@ if page == "Calculator & Log":
         st.markdown(f"<div class='conversion-text'>🔄 ≈ {(customs / rate):.2f} AED</div>", unsafe_allow_html=True)
         
         total_cost = buy_price + ship_price + customs
+        
+        # --- NEW: BIG TOTAL COST DISPLAY ---
+        st.markdown(f"""
+            <div class="total-cost-box">
+                <div style="font-size: 0.9rem; opacity: 0.8; font-weight: 600; margin-bottom: 5px;">TOTAL COST PRICE:</div>
+                <div style="line-height: 1.1;">
+                    <span style="font-size: 2.2rem; font-weight: 700;">₹{total_cost:,.2f}</span>
+                    <span style="font-size: 1.3rem; opacity: 0.7; margin-left: 10px;">(≈ {(total_cost / rate):.2f} AED)</span>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
 
     with col2:
         st.markdown("<h4 class='section-header'>📈 Sale (AED)</h4>", unsafe_allow_html=True)
@@ -104,7 +122,7 @@ if page == "Calculator & Log":
     
     # Results Dashboard
     m1, m2, m3 = st.columns(3)
-    m1.metric("Total Cost (INR)", f"₹{total_cost:,.2f}")
+    m1.metric("Total Investment (INR)", f"₹{total_cost:,.2f}")
     m2.metric("Net Profit (INR)", f"₹{profit:,.2f}", delta=f"{margin:.1f}% Margin")
     m3.metric("Profit (AED)", f"{profit/rate:.2f} د.إ")
 
@@ -123,7 +141,6 @@ if page == "Calculator & Log":
             'Profit (INR)': profit,
             'Margin %': round(margin, 2)
         }
-        # Add to dataframe
         st.session_state.sales_data = pd.concat([st.session_state.sales_data, pd.DataFrame([new_entry])], ignore_index=True)
         st.success(f"Logged {sale_id} ({item_name}) successfully!")
 
@@ -150,7 +167,6 @@ else:
         # --- DATA TABLE ---
         st.subheader("Detailed Logs")
         
-        # Display dataframe with styled columns
         st.dataframe(
             df.sort_values('Date', ascending=False), 
             use_container_width=True,
@@ -166,7 +182,6 @@ else:
         st.divider()
         st.subheader("🗑️ Manage Records")
         
-        # Formatted delete options: e.g., "0: [INV-001] Silk Saree to Aisha M. - 150 AED"
         delete_options = [
             f"{i}: [{row['Sale ID']}] {row['Item']} to {row['Customer']} - {row['Sale (AED)']} AED" 
             for i, row in df.iterrows()
@@ -180,9 +195,7 @@ else:
             st.write("")
             if st.button("Delete Specific Record", type="primary"):
                 if selected_to_delete:
-                    # Extract the index (the number before the colon)
                     idx_to_drop = int(selected_to_delete.split(":")[0])
-                    # Drop from the session state dataframe
                     st.session_state.sales_data = st.session_state.sales_data.drop(idx_to_drop).reset_index(drop=True)
                     st.success(f"Record deleted successfully!")
                     st.rerun()
