@@ -3,536 +3,327 @@ import pandas as pd
 import requests
 from datetime import datetime
 
-# --- CONFIG ---
-st.set_page_config(page_title="Indo-UAE Trade Pro", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Trade Pro", layout="wide", initial_sidebar_state="collapsed")
 
-# --- GLOBAL STYLES ---
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
-/* ── Reset & base ── */
-html, body, [class*="css"] {
-    font-family: 'DM Sans', sans-serif;
-}
-
-/* ── App background ── */
-.stApp {
-    background-color: #0f1117;
-    color: #e8eaf0;
+*, html, body, [class*="css"] {
+    font-family: 'IBM Plex Sans', sans-serif;
 }
 
-/* ── Sidebar ── */
-[data-testid="stSidebar"] {
-    background-color: #161b27;
-    border-right: 1px solid #252d3d;
-}
-[data-testid="stSidebar"] .stRadio > label {
-    color: #8a94a8 !important;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    font-weight: 500;
-}
-[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label {
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    padding: 8px 12px;
-    color: #b0bac8 !important;
-    font-size: 0.9rem;
-    transition: all 0.15s ease;
-}
-[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:hover {
-    background: rgba(196, 161, 97, 0.08);
-    border-color: rgba(196, 161, 97, 0.2);
-    color: #c4a161 !important;
-}
-[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label[data-testid*="selected"],
-[data-testid="stSidebar"] .stRadio input:checked + div {
-    background: rgba(196, 161, 97, 0.12) !important;
-}
+.stApp { background: #ffffff; color: #1a1a1a; }
+[data-testid="stSidebar"] { display: none; }
+[data-testid="stHeader"] { background: transparent; }
 
-/* ── Sidebar brand ── */
-.sidebar-brand {
-    padding: 8px 4px 24px;
-    border-bottom: 1px solid #252d3d;
-    margin-bottom: 24px;
+.topbar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 20px 0 14px;
+    border-bottom: 1.5px solid #1a1a1a;
+    margin-bottom: 0;
 }
-.sidebar-brand h2 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #e8eaf0;
-    margin: 0;
-    letter-spacing: -0.01em;
-}
-.sidebar-brand p {
-    font-size: 0.72rem;
-    color: #8a94a8;
-    margin: 2px 0 0;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
+.topbar-left { font-size: 0.95rem; font-weight: 600; letter-spacing: -0.01em; color: #1a1a1a; }
+.topbar-right { font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; color: #aaa; }
+.topbar-right span { color: #1a1a1a; font-weight: 500; }
 
-/* ── Live rate badge ── */
-.rate-badge {
-    background: linear-gradient(135deg, rgba(196,161,97,0.15), rgba(196,161,97,0.05));
-    border: 1px solid rgba(196, 161, 97, 0.3);
-    border-radius: 8px;
-    padding: 12px 14px;
-    margin-top: 20px;
-}
-.rate-badge .label {
+.lbl {
     font-size: 0.68rem;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: #8a94a8;
-    margin-bottom: 3px;
-}
-.rate-badge .value {
-    font-family: 'DM Mono', monospace;
-    font-size: 1.4rem;
-    font-weight: 500;
-    color: #c4a161;
-}
-.rate-badge .sub {
-    font-size: 0.7rem;
-    color: #8a94a8;
-    margin-top: 2px;
+    color: #aaa;
+    margin: 28px 0 14px;
 }
 
-/* ── Page header ── */
-.page-header {
-    padding: 6px 0 28px;
-    border-bottom: 1px solid #252d3d;
-    margin-bottom: 28px;
+.stTextInput label, .stNumberInput label, .stSelectbox label {
+    font-size: 0.72rem !important;
+    font-weight: 500 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    color: #888 !important;
+    margin-bottom: 5px !important;
 }
-.page-header h1 {
-    font-size: 1.6rem;
-    font-weight: 600;
-    color: #e8eaf0;
-    margin: 0 0 4px;
-    letter-spacing: -0.02em;
-}
-.page-header p {
-    font-size: 0.85rem;
-    color: #8a94a8;
-    margin: 0;
-}
-
-/* ── Section label ── */
-.section-label {
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: #8a94a8;
-    margin: 0 0 14px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #252d3d;
-}
-
-/* ── Card ── */
-.card {
-    background: #161b27;
-    border: 1px solid #252d3d;
-    border-radius: 10px;
-    padding: 20px 22px;
-    margin-bottom: 16px;
-}
-
-/* ── Inputs ── */
-.stTextInput input, .stNumberInput input, .stSelectbox > div > div {
-    background-color: #1e2535 !important;
-    border: 1px solid #2e3749 !important;
-    border-radius: 7px !important;
-    color: #e8eaf0 !important;
-    font-family: 'DM Sans', sans-serif !important;
+.stTextInput input, .stNumberInput input {
+    background: #f7f7f7 !important;
+    border: 1px solid #e8e8e8 !important;
+    border-radius: 6px !important;
+    color: #1a1a1a !important;
+    font-family: 'IBM Plex Sans', sans-serif !important;
     font-size: 0.9rem !important;
 }
 .stTextInput input:focus, .stNumberInput input:focus {
-    border-color: #c4a161 !important;
-    box-shadow: 0 0 0 2px rgba(196,161,97,0.15) !important;
+    border-color: #1a1a1a !important;
+    background: #fff !important;
+    box-shadow: none !important;
 }
-.stTextInput label, .stNumberInput label, .stSelectbox label {
-    color: #8a94a8 !important;
-    font-size: 0.78rem !important;
-    font-weight: 500 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.06em !important;
-    margin-bottom: 4px !important;
-}
-
-/* ── Conversion hint ── */
-.conv-hint {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.75rem;
-    color: #5a6478;
-    margin-top: -8px;
-    margin-bottom: 10px;
-    padding-left: 2px;
+[data-testid="stSelectbox"] > div > div {
+    background: #f7f7f7 !important;
+    border: 1px solid #e8e8e8 !important;
+    border-radius: 6px !important;
+    font-size: 0.9rem !important;
 }
 
-/* ── Total cost panel ── */
-.cost-panel {
-    background: linear-gradient(135deg, #1a1f2e, #161b27);
-    border: 1px solid #2e3749;
-    border-left: 3px solid #c4a161;
+.hint {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: #ccc;
+    margin-top: -10px;
+    margin-bottom: 14px;
+}
+
+.cost-strip {
+    background: #f7f7f7;
     border-radius: 8px;
     padding: 16px 18px;
-    margin-top: 8px;
+    margin-top: 6px;
 }
-.cost-panel .cp-label {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: #8a94a8;
-    margin-bottom: 6px;
-    font-weight: 600;
-}
-.cost-panel .cp-inr {
-    font-family: 'DM Mono', monospace;
-    font-size: 2rem;
-    font-weight: 500;
-    color: #e8eaf0;
-    line-height: 1;
-}
-.cost-panel .cp-aed {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.9rem;
-    color: #8a94a8;
-    margin-top: 4px;
-}
+.cost-strip .cs-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: #888; margin-bottom: 4px; font-weight: 600; }
+.cost-strip .cs-inr { font-family: 'IBM Plex Mono', monospace; font-size: 1.6rem; font-weight: 500; color: #1a1a1a; line-height: 1.1; }
+.cost-strip .cs-aed { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; color: #aaa; margin-top: 3px; }
 
-/* ── Metric cards ── */
+hr { border: none; border-top: 1px solid #ebebeb !important; margin: 24px 0 !important; }
+
 [data-testid="stMetric"] {
-    background: #161b27 !important;
-    border: 1px solid #252d3d !important;
-    border-radius: 10px !important;
-    padding: 18px 20px !important;
+    background: #f7f7f7 !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 16px 18px !important;
 }
 [data-testid="stMetricLabel"] {
-    color: #8a94a8 !important;
-    font-size: 0.72rem !important;
+    font-size: 0.68rem !important;
     font-weight: 600 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.08em !important;
+    color: #888 !important;
 }
 [data-testid="stMetricValue"] {
-    font-family: 'DM Mono', monospace !important;
-    color: #e8eaf0 !important;
-    font-size: 1.5rem !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 1.35rem !important;
+    font-weight: 500 !important;
+    color: #1a1a1a !important;
 }
-[data-testid="stMetricDelta"] {
-    font-size: 0.8rem !important;
-}
+[data-testid="stMetricDelta"] { font-size: 0.78rem !important; }
 
-/* ── Primary button ── */
-.stButton button[kind="primary"] {
-    background: linear-gradient(135deg, #c4a161, #a8874a) !important;
+.stButton > button[kind="primary"] {
+    background: #1a1a1a !important;
+    color: #fff !important;
     border: none !important;
-    color: #0f1117 !important;
-    font-weight: 600 !important;
-    font-size: 0.88rem !important;
-    letter-spacing: 0.02em !important;
-    border-radius: 8px !important;
-    padding: 10px 24px !important;
-    transition: all 0.15s ease !important;
+    border-radius: 6px !important;
+    font-family: 'IBM Plex Sans', sans-serif !important;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.01em !important;
+    transition: opacity 0.15s !important;
 }
-.stButton button[kind="primary"]:hover {
-    opacity: 0.9 !important;
-    transform: translateY(-1px) !important;
-}
+.stButton > button[kind="primary"]:hover { opacity: 0.75 !important; }
 
-/* ── Secondary button ── */
-.stButton button[kind="secondary"] {
-    background: #1e2535 !important;
-    border: 1px solid #2e3749 !important;
-    color: #b0bac8 !important;
-    font-size: 0.88rem !important;
-    border-radius: 8px !important;
+.stButton > button[kind="secondary"] {
+    background: #fff !important;
+    color: #1a1a1a !important;
+    border: 1px solid #e0e0e0 !important;
+    border-radius: 6px !important;
+    font-size: 0.85rem !important;
+    font-family: 'IBM Plex Sans', sans-serif !important;
 }
+.stButton > button[kind="secondary"]:hover { border-color: #1a1a1a !important; }
 
-/* ── Divider ── */
-hr {
-    border-color: #252d3d !important;
-    margin: 20px 0 !important;
+.stDownloadButton > button {
+    background: #fff !important;
+    color: #1a1a1a !important;
+    border: 1px solid #e0e0e0 !important;
+    border-radius: 6px !important;
+    font-size: 0.85rem !important;
+    width: 100% !important;
 }
+.stDownloadButton > button:hover { border-color: #1a1a1a !important; }
 
-/* ── Dataframe ── */
 [data-testid="stDataFrame"] {
-    border: 1px solid #252d3d !important;
-    border-radius: 10px !important;
+    border: 1px solid #ebebeb !important;
+    border-radius: 8px !important;
     overflow: hidden !important;
 }
 
-/* ── Alerts ── */
-.stSuccess {
-    background: rgba(72, 187, 120, 0.08) !important;
-    border: 1px solid rgba(72, 187, 120, 0.25) !important;
-    border-radius: 8px !important;
-    color: #68d391 !important;
-}
-.stInfo {
-    background: rgba(99, 179, 237, 0.08) !important;
-    border: 1px solid rgba(99, 179, 237, 0.2) !important;
-    border-radius: 8px !important;
-}
+div[data-testid="stSuccess"] { background: #f2faf5 !important; border: 1px solid #c3e6cb !important; border-radius: 6px !important; color: #276740 !important; }
+div[data-testid="stInfo"]    { background: #f7f7f7 !important; border: 1px solid #e0e0e0 !important; border-radius: 6px !important; color: #555 !important; }
 
-/* ── Download button ── */
-.stDownloadButton button {
-    background: #1e2535 !important;
-    border: 1px solid #2e3749 !important;
-    color: #b0bac8 !important;
-    border-radius: 8px !important;
-    font-size: 0.88rem !important;
-    width: 100% !important;
-}
-.stDownloadButton button:hover {
-    border-color: #c4a161 !important;
-    color: #c4a161 !important;
-}
-
-/* ── Selectbox dropdown ── */
-[data-testid="stSelectbox"] div[data-baseweb="select"] {
-    background-color: #1e2535 !important;
-}
-
-/* ── Subheader ── */
-h2, h3 {
-    color: #e8eaf0 !important;
-    font-weight: 600 !important;
-    letter-spacing: -0.015em !important;
-}
+h2, h3 { font-weight: 600 !important; color: #1a1a1a !important; letter-spacing: -0.01em !important; }
 </style>
 """, unsafe_allow_html=True)
 
-
-# --- DATA INITIALIZATION ---
+# ── Init ──
 if 'sales_data' not in st.session_state:
     st.session_state.sales_data = pd.DataFrame(columns=[
-        'Date', 'Sale ID', 'Customer', 'Item', 'Channel', 'Payment', 'Status',
-        'Cost (INR)', 'Sale (AED)', 'Profit (INR)', 'Margin %'
+        'Date','Sale ID','Customer','Item','Channel','Payment','Status',
+        'Cost (INR)','Sale (AED)','Profit (INR)','Margin %'
     ])
+if 'tab' not in st.session_state:
+    st.session_state.tab = "calc"
 
-
-# --- HELPER ---
 def get_rate():
     try:
-        url = "https://api.exchangerate-api.com/v4/latest/AED"
-        return requests.get(url).json()['rates']['INR']
+        return requests.get("https://api.exchangerate-api.com/v4/latest/AED").json()['rates']['INR']
     except:
         return 22.75
 
+rate = get_rate()
 
-# --- SIDEBAR ---
-with st.sidebar:
-    st.markdown("""
-    <div class="sidebar-brand">
-        <h2>Indo-UAE Trade Pro</h2>
-        <p>Sales & Bookkeeping</p>
-    </div>
-    """, unsafe_allow_html=True)
+# ── Top bar ──
+st.markdown(f"""
+<div class="topbar">
+    <div class="topbar-left">Indo-UAE Trade Pro</div>
+    <div class="topbar-right">1 AED = <span>₹{rate:.2f}</span> &nbsp;·&nbsp; live</div>
+</div>
+""", unsafe_allow_html=True)
 
-    page = st.radio("Navigation", ["Calculator & Log", "Bookkeeping & Analytics"], label_visibility="collapsed")
+# ── Tab row ──
+tb1, tb2, _gap = st.columns([1.2, 1.2, 7.6])
+with tb1:
+    if st.button("Calculator & Log",
+                 type="primary" if st.session_state.tab == "calc" else "secondary",
+                 use_container_width=True):
+        st.session_state.tab = "calc"; st.rerun()
+with tb2:
+    if st.button("Bookkeeping",
+                 type="primary" if st.session_state.tab == "book" else "secondary",
+                 use_container_width=True):
+        st.session_state.tab = "book"; st.rerun()
 
-    rate = get_rate()
-    st.markdown(f"""
-    <div class="rate-badge">
-        <div class="label">Live Exchange Rate</div>
-        <div class="value">₹{rate:.4f}</div>
-        <div class="sub">per 1 AED · Updated now</div>
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown("<hr style='margin:16px 0 28px'>", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════
-# PAGE 1 — CALCULATOR & LOG
+# CALCULATOR
 # ══════════════════════════════════════════════
-if page == "Calculator & Log":
+if st.session_state.tab == "calc":
 
-    st.markdown("""
-    <div class="page-header">
-        <h1>New Sale Entry</h1>
-        <p>Fill in order details and costs to calculate profitability, then log the sale.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("<div class='lbl'>Order Details</div>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        sale_id  = st.text_input("Invoice ID", value=f"INV-{len(st.session_state.sales_data)+1:03d}")
+        customer = st.text_input("Customer", placeholder="e.g. Aisha M.")
+    with c2:
+        item_name = st.text_input("Item", placeholder="e.g. Green Silk Kurti")
+        channel   = st.selectbox("Channel", ["WhatsApp","Instagram","In-Person","Website","Other"])
+    with c3:
+        payment = st.selectbox("Payment", ["Cash","Bank Transfer","Payment Link","Other"])
+        status  = st.selectbox("Status",  ["Delivered","Shipped (Transit)","Pending"])
 
-    # ── ORDER DETAILS ──
-    st.markdown("<p class='section-label'>Order & Customer Details</p>", unsafe_allow_html=True)
+    st.markdown("<hr>", unsafe_allow_html=True)
 
-    sd1, sd2, sd3 = st.columns(3)
-    with sd1:
-        default_inv = f"INV-{len(st.session_state.sales_data) + 1:03d}"
-        sale_id  = st.text_input("Invoice / Sale ID", value=default_inv)
-        customer = st.text_input("Customer Name", placeholder="e.g. Aisha M.")
-    with sd2:
-        item_name = st.text_input("Item Label", placeholder="e.g. Green Silk Kurti")
-        channel   = st.selectbox("Sales Channel", ["WhatsApp", "Instagram", "In-Person", "Website", "Other"])
-    with sd3:
-        payment = st.selectbox("Payment Method", ["Cash", "Bank Transfer", "Payment Link", "Other"])
-        status  = st.selectbox("Fulfillment Status", ["Delivered", "Shipped (Transit)", "Pending"])
-
-    st.divider()
-
-    # ── FINANCIALS ──
     col1, col2 = st.columns(2, gap="large")
 
     with col1:
-        st.markdown("<p class='section-label'>Costing  ·  INR</p>", unsafe_allow_html=True)
-
-        buy_price = st.number_input("Purchase Price (INR)", min_value=0.0, step=100.0)
-        st.markdown(f"<div class='conv-hint'>≈ {(buy_price / rate):.2f} AED</div>", unsafe_allow_html=True)
-
+        st.markdown("<div class='lbl'>Costs — INR</div>", unsafe_allow_html=True)
+        buy_price  = st.number_input("Purchase Price (INR)",        min_value=0.0, step=100.0)
+        st.markdown(f"<div class='hint'>≈ {buy_price/rate:.2f} AED</div>", unsafe_allow_html=True)
         ship_price = st.number_input("Shipping / Packaging (INR)", min_value=0.0, step=50.0)
-        st.markdown(f"<div class='conv-hint'>≈ {(ship_price / rate):.2f} AED</div>", unsafe_allow_html=True)
-
-        customs = st.number_input("Customs / Misc (INR)", min_value=0.0, step=10.0)
-        st.markdown(f"<div class='conv-hint'>≈ {(customs / rate):.2f} AED</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='hint'>≈ {ship_price/rate:.2f} AED</div>", unsafe_allow_html=True)
+        customs    = st.number_input("Customs / Misc (INR)",        min_value=0.0, step=10.0)
+        st.markdown(f"<div class='hint'>≈ {customs/rate:.2f} AED</div>", unsafe_allow_html=True)
 
         total_cost = buy_price + ship_price + customs
-
         st.markdown(f"""
-        <div class="cost-panel">
-            <div class="cp-label">Total Cost Price</div>
-            <div class="cp-inr">₹{total_cost:,.2f}</div>
-            <div class="cp-aed">≈ {(total_cost / rate):.2f} AED</div>
+        <div class="cost-strip">
+            <div class="cs-label">Total Cost</div>
+            <div class="cs-inr">₹{total_cost:,.2f}</div>
+            <div class="cs-aed">≈ {total_cost/rate:.2f} AED</div>
         </div>
         """, unsafe_allow_html=True)
 
     with col2:
-        st.markdown("<p class='section-label'>Revenue  ·  AED</p>", unsafe_allow_html=True)
-
-        sale_aed = st.number_input("Sale Price in UAE (AED)", min_value=0.0, step=10.0)
-        st.markdown(f"<div class='conv-hint'>≈ ₹{(sale_aed * rate):,.2f}</div>", unsafe_allow_html=True)
-
+        st.markdown("<div class='lbl'>Revenue — AED</div>", unsafe_allow_html=True)
+        sale_aed    = st.number_input("Sale Price (AED)", min_value=0.0, step=10.0)
+        st.markdown(f"<div class='hint'>≈ ₹{sale_aed*rate:,.2f}</div>", unsafe_allow_html=True)
         revenue_inr = sale_aed * rate
-        profit  = revenue_inr - total_cost
-        margin  = (profit / revenue_inr * 100) if revenue_inr > 0 else 0
+        profit      = revenue_inr - total_cost
+        margin      = (profit / revenue_inr * 100) if revenue_inr > 0 else 0
 
-    st.divider()
-
-    # ── RESULTS ──
-    st.markdown("<p class='section-label'>Profit Summary</p>", unsafe_allow_html=True)
+    st.markdown("<hr>", unsafe_allow_html=True)
 
     m1, m2, m3 = st.columns(3)
-    m1.metric("Total Investment", f"₹{total_cost:,.2f}", help="Sum of purchase + shipping + customs in INR")
+    m1.metric("Total Investment", f"₹{total_cost:,.2f}")
     m2.metric("Net Profit (INR)", f"₹{profit:,.2f}", delta=f"{margin:.1f}% margin")
-    m3.metric("Net Profit (AED)", f"{(profit / rate):.2f} د.إ")
+    m3.metric("Net Profit (AED)", f"{profit/rate:.2f} د.إ")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    if st.button("✦  Record Sale to Bookkeeping", use_container_width=True, type="primary"):
-        new_entry = {
-            'Date':        datetime.now().strftime("%Y-%m-%d %H:%M"),
-            'Sale ID':     sale_id,
-            'Customer':    customer  if customer  else "Unknown",
-            'Item':        item_name if item_name else "Unnamed Item",
-            'Channel':     channel,
-            'Payment':     payment,
-            'Status':      status,
-            'Cost (INR)':  total_cost,
-            'Sale (AED)':  sale_aed,
-            'Profit (INR)': profit,
-            'Margin %':    round(margin, 2)
+    if st.button("Record Sale →", use_container_width=True, type="primary"):
+        entry = {
+            'Date': datetime.now().strftime("%Y-%m-%d %H:%M"),
+            'Sale ID': sale_id, 'Customer': customer or "Unknown",
+            'Item': item_name or "Unnamed", 'Channel': channel,
+            'Payment': payment, 'Status': status,
+            'Cost (INR)': total_cost, 'Sale (AED)': sale_aed,
+            'Profit (INR)': profit, 'Margin %': round(margin, 2)
         }
         st.session_state.sales_data = pd.concat(
-            [st.session_state.sales_data, pd.DataFrame([new_entry])],
-            ignore_index=True
+            [st.session_state.sales_data, pd.DataFrame([entry])], ignore_index=True
         )
-        st.success(f"Sale {sale_id} — {item_name} — logged successfully.")
+        st.success(f"{sale_id} logged successfully.")
 
 
 # ══════════════════════════════════════════════
-# PAGE 2 — BOOKKEEPING & ANALYTICS
+# BOOKKEEPING
 # ══════════════════════════════════════════════
 else:
-    st.markdown("""
-    <div class="page-header">
-        <h1>Bookkeeping & Analytics</h1>
-        <p>Lifetime sales records, profit overview, and data management.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
     if st.session_state.sales_data.empty:
-        st.info("No sales recorded yet. Head to the Calculator tab to log your first sale.")
+        st.info("No sales yet. Use the Calculator tab to log your first sale.")
     else:
         df = st.session_state.sales_data.copy()
         df['Date'] = pd.to_datetime(df['Date'])
-        df['Month'] = df['Date'].dt.strftime('%B %Y')
 
-        total_rev  = (df['Sale (AED)'] * rate).sum()
-        total_prof = df['Profit (INR)'].sum()
-        avg_margin = df['Margin %'].mean()
-
-        # ── SUMMARY ──
-        st.markdown("<p class='section-label'>Lifetime Overview</p>", unsafe_allow_html=True)
-
+        st.markdown("<div class='lbl'>Overview</div>", unsafe_allow_html=True)
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Total Revenue",   f"₹{total_rev:,.0f}")
-        c2.metric("Total Profit",    f"₹{total_prof:,.0f}")
-        c3.metric("Avg. Margin",     f"{avg_margin:.1f}%")
-        c4.metric("Items Sold",      str(len(df)))
+        c1.metric("Revenue",    f"₹{(df['Sale (AED)']*rate).sum():,.0f}")
+        c2.metric("Profit",     f"₹{df['Profit (INR)'].sum():,.0f}")
+        c3.metric("Avg Margin", f"{df['Margin %'].mean():.1f}%")
+        c4.metric("Items Sold", str(len(df)))
 
-        st.divider()
-
-        # ── DATA TABLE ──
-        st.markdown("<p class='section-label'>Detailed Sales Log</p>", unsafe_allow_html=True)
+        st.markdown("<hr>", unsafe_allow_html=True)
+        st.markdown("<div class='lbl'>Sales Log</div>", unsafe_allow_html=True)
 
         st.dataframe(
-            df.drop(columns=['Month']).sort_values('Date', ascending=False),
-            use_container_width=True,
-            hide_index=True,
+            df.sort_values('Date', ascending=False),
+            use_container_width=True, hide_index=True,
             column_config={
-                "Date":        st.column_config.DatetimeColumn("Date", format="DD MMM YYYY, HH:mm"),
-                "Profit (INR)": st.column_config.NumberColumn("Profit (INR)", format="₹%.2f"),
-                "Sale (AED)":  st.column_config.NumberColumn("Sale (AED)",   format="%.2f د.إ"),
-                "Cost (INR)":  st.column_config.NumberColumn("Cost (INR)",   format="₹%.2f"),
-                "Margin %":    st.column_config.NumberColumn("Margin",       format="%.1f%%"),
+                "Date":         st.column_config.DatetimeColumn("Date", format="DD MMM YYYY, HH:mm"),
+                "Profit (INR)": st.column_config.NumberColumn(format="₹%.2f"),
+                "Sale (AED)":   st.column_config.NumberColumn(format="%.2f د.إ"),
+                "Cost (INR)":   st.column_config.NumberColumn(format="₹%.2f"),
+                "Margin %":     st.column_config.NumberColumn(format="%.1f%%"),
             }
         )
 
-        st.divider()
+        st.markdown("<hr>", unsafe_allow_html=True)
+        st.markdown("<div class='lbl'>Manage</div>", unsafe_allow_html=True)
 
-        # ── MANAGE RECORDS ──
-        st.markdown("<p class='section-label'>Manage Records</p>", unsafe_allow_html=True)
-
-        delete_options = [
-            f"{i}:  [{row['Sale ID']}]  {row['Item']}  →  {row['Customer']}  ({row['Sale (AED)']} AED)"
-            for i, row in df.iterrows()
+        opts = [
+            f"{i}  ·  [{r['Sale ID']}]  {r['Item']}  —  {r['Customer']}  ({r['Sale (AED)']} AED)"
+            for i, r in df.iterrows()
         ]
-
-        col_del1, col_del2 = st.columns([4, 1])
-        with col_del1:
-            selected_to_delete = st.selectbox("Select record to delete", delete_options, label_visibility="collapsed")
-        with col_del2:
+        d1, d2 = st.columns([5, 1])
+        with d1:
+            sel = st.selectbox("Record", opts, label_visibility="collapsed")
+        with d2:
             if st.button("Delete", type="primary", use_container_width=True):
-                if selected_to_delete:
-                    idx_to_drop = int(selected_to_delete.split(":")[0])
-                    st.session_state.sales_data = (
-                        st.session_state.sales_data
-                        .drop(idx_to_drop)
-                        .reset_index(drop=True)
-                    )
-                    st.success("Record deleted.")
-                    st.rerun()
+                idx = int(sel.split("·")[0].strip())
+                st.session_state.sales_data = (
+                    st.session_state.sales_data.drop(idx).reset_index(drop=True)
+                )
+                st.success("Deleted.")
+                st.rerun()
 
-        st.divider()
-
-        # ── EXPORT / WIPE ──
-        st.markdown("<p class='section-label'>Data Export & Reset</p>", unsafe_allow_html=True)
-
-        c_dl, c_wipe = st.columns(2)
-        with c_dl:
-            csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                "↓  Download as CSV",
-                data=csv,
-                file_name="indo_uae_sales.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
-        with c_wipe:
-            if st.button("⚠  Clear All Records", use_container_width=True):
+        st.markdown("<hr>", unsafe_allow_html=True)
+        e1, e2 = st.columns(2)
+        with e1:
+            st.download_button("↓  Export CSV",
+                data=df.to_csv(index=False).encode('utf-8'),
+                file_name="indo_uae_sales.csv", mime="text/csv",
+                use_container_width=True)
+        with e2:
+            if st.button("Clear All Records", use_container_width=True):
                 st.session_state.sales_data = pd.DataFrame(columns=st.session_state.sales_data.columns)
                 st.rerun()
